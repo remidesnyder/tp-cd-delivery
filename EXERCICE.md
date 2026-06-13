@@ -27,35 +27,93 @@ Si un registre ne repond plus apres une veille du poste :
 bash bin/check-relays.sh
 ```
 
-## GitHub Flow full local
+## Preparation du depot
 
-Le TP simule GitHub Flow sans dependance a GitHub.com :
+Comme pour les TP precedents, commencez par travailler depuis votre fork :
+
+```bash
+git clone <url-de-votre-fork>
+cd tp-cd-github-flow
+```
+
+Le TP reste ensuite local : les jobs sont executes avec `act`, le package npm est publie dans Verdaccio, et l'image est poussee dans le registre Docker local `registry:2`.
+
+## Partie 1 - Ajouter la CD directement sur `main`
+
+Dans cette premiere partie, ne creez pas encore de branche de feature. L'objectif est de construire la pipeline de livraison pas a pas sur `main`, afin de comprendre chaque job avant de simuler un changement applicatif.
 
 ```bash
 git checkout main
-git checkout -b feature/add-delivery-pipeline
 
 # modifier .github/workflows/ci.yml
 npm test
 act -j security
-
-git add .
-git commit -m "feat: add delivery pipeline"
-
-# simulation de PR locale
-git diff main...HEAD
-
-git checkout main
-git merge --no-ff feature/add-delivery-pipeline
 ```
 
-La suite CD se teste ensuite sur `main` :
+Ajoutez ensuite les jobs `release`, `publish-npm` et `publish-docker` dans `.github/workflows/ci.yml`, en suivant les exercices ci-dessous.
+
+La suite CD se teste sur `main` :
 
 ```bash
 act -j release
 act -j publish-npm
 act -j publish-docker
 ```
+
+Si vous relancez plusieurs fois les publications, les registres locaux peuvent bloquer ou conserver des artefacts deja publies :
+
+- Verdaccio refuse de publier deux fois la meme version npm.
+- `registry:2` accepte les tags Docker mutables, mais le TP ajoute une verification pour refuser de masquer une image deja publiee.
+
+Les commandes de nettoyage sont donnees en fin de document.
+
+Apres validation de cette partie, committez le workflow :
+
+```bash
+git add .github/workflows/ci.yml
+git commit -m "feat: add delivery pipeline"
+```
+
+Point important : avec `act`, le commit et le tag crees par `npx commit-and-tag-version` existent dans le runner ephemere, pas dans votre depot local. Ils servent a comprendre le job `release`, mais ils ne modifient pas votre copie de travail.
+
+## Partie 2 - Ajouter un fix via branche courte et rebase
+
+Avant de recoder, realignez votre depot local avec la release simulee dans `act` :
+
+```bash
+npx commit-and-tag-version
+git status
+```
+
+Cette commande applique localement les changements de release, typiquement `package.json`, `package-lock.json`, `CHANGELOG.md` et un tag Git. Verifiez que votre `main` est propre avant de creer la branche de fix.
+
+Le fix applicatif est volontairement minimal : modifier une ligne de documentation Swagger dans `src/main.ts`, par exemple la description de l'API.
+
+```bash
+git checkout main
+git checkout -b fix/swagger-description
+
+# dans src/main.ts, clarifier la description Swagger
+git add src/main.ts
+git commit -m "fix: clarify api description"
+
+git rebase main
+git checkout main
+git merge --ff-only fix/swagger-description
+```
+
+Le rebase garde une histoire lineaire. L'integration sur `main` se fait ensuite en fast-forward : aucun commit de merge n'est cree.
+
+Relancez les verifications :
+
+```bash
+act -j security
+act -j release
+act -j publish-npm
+act -j publish-docker
+```
+
+Si une publication echoue car la version existe deja, nettoyez le registre concerne ou relancez une release locale pour obtenir une nouvelle version.
 
 ## Exercice 1 - job `release`
 
@@ -112,7 +170,7 @@ release:
       run: npx commit-and-tag-version
 ```
 
-Avec `act`, le commit et le tag sont crees dans le runner ephemere. Ils servent a comprendre le mecanisme, mais ne modifient pas automatiquement votre depot local.
+Avec `act`, le commit et le tag sont crees dans le runner ephemere. Ils servent a comprendre le mecanisme, mais ne modifient pas automatiquement votre depot local. Pour continuer a travailler sur du code apres cet essai, lancez vous-meme `npx commit-and-tag-version` dans le DevContainer.
 
 ## Exercice 2 - job `publish-npm`
 
@@ -178,6 +236,8 @@ npm view tp-cd-github-flow --registry http://localhost:4873
 ```
 
 Verdaccio refuse de publier deux fois la meme version. C'est normal : une version publiee est consideree comme immuable.
+
+Si vous devez refaire l'exercice avec la meme version, supprimez la version npm dans Verdaccio ou reinitialisez les registres locaux avec les commandes de nettoyage en fin de document.
 
 ## Exercice 3 - job `publish-docker`
 
@@ -245,6 +305,8 @@ curl http://localhost:5000/v2/tp-cd-github-flow/tags/list
 ```
 
 Contrairement a Verdaccio, `registry:2` accepte par defaut de pousser un tag Docker qui existe deja. Un tag Docker est une reference mutable vers un manifeste d'image : repusher `:0.0.1` peut donc faire pointer ce tag vers une nouvelle image. La verification ci-dessus rend le pipeline local plus strict en refusant de masquer une image deja publiee.
+
+Si ce job echoue parce que le tag existe deja, c'est le comportement attendu du TP. Nettoyez le registre Docker local ou utilisez une nouvelle version.
 
 ## Nettoyage des registres locaux
 

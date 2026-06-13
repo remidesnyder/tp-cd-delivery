@@ -12,6 +12,22 @@ Repere important :
 
 Le principe a retenir est `build once, publish many` : on ne recompile pas separement pour chaque format d'artefact.
 
+## Runner `act` et depot local
+
+Un runner `act` est ephemere. Il clone le depot, execute le job, puis disparait.
+Si le job `release` lance `npx commit-and-tag-version`, les modifications de
+`package.json`, `CHANGELOG.md` et le tag Git restent dans ce runner. Elles ne
+sont pas visibles dans votre DevContainer.
+
+Pour continuer le TP apres une release simulee, lancez vous-meme :
+
+```bash
+npx commit-and-tag-version
+```
+
+Cette commande realigne votre depot local avant de creer une branche courte et
+de rebaser votre fix sur `main`.
+
 ## Immutabilite des publications
 
 Une version npm publiee dans Verdaccio est immuable : publier deux fois `tp-cd-github-flow@0.0.1` est refuse.

@@ -13,6 +13,10 @@ security -> release -> publish-npm
                     -> publish-docker
 ```
 
+Dans la premiere partie du TP, cette suite est ajoutee directement sur `main`.
+La branche courte n'arrive qu'ensuite, pour un petit fix applicatif rebase sur
+`main` puis integre en fast-forward.
+
 ## Jobs initiaux
 
 | Job | Role |
@@ -44,3 +48,19 @@ if: github.ref == 'refs/heads/main'
 ```
 
 Une branche de feature doit donc valider la CI, mais ne doit pas publier de release ni d'artefact.
+
+## `act` et release locale
+
+Quand `act` lance le job `release`, `npx commit-and-tag-version` modifie le
+clone Git present dans le runner ephemere. Le commit de release et le tag ne
+sont pas recopies dans votre depot local.
+
+Avant de coder une nouvelle modification apres un essai de release, lancez donc
+la commande localement :
+
+```bash
+npx commit-and-tag-version
+```
+
+Vous repartez ainsi d'un `main` local aligne avec le bump de version et le
+changelog attendus.

@@ -152,6 +152,8 @@ jobs:
   #   - Checkout avec fetch-depth: 0 pour lire l'historique et les tags
   #   - Configurer git user.name et git user.email
   #   - Lancer npx commit-and-tag-version
+  # Avec act, le commit et le tag crees par ce job restent dans le runner
+  # ephemere. Lancez npx commit-and-tag-version localement avant de recoder.
   # ---------------------------------------------------------------------------
 
   # ---------------------------------------------------------------------------
@@ -162,6 +164,8 @@ jobs:
   #   - Telecharger l'artefact build-dist dans dist/
   #   - Configurer l'authentification npm minimale pour Verdaccio
   #   - Publier vers http://localhost:4873
+  # Si Verdaccio refuse une version deja publiee, nettoyez le registre local
+  # avec les commandes donnees dans EXERCICE.md.
   # ---------------------------------------------------------------------------
 
   # ---------------------------------------------------------------------------
@@ -172,4 +176,5 @@ jobs:
   #   - Telecharger l'artefact build-dist dans dist/
   #   - Construire l'image Docker de l'API
   #   - Taguer et pousser vers localhost:5000/tp-cd-github-flow:<version>
+  # Le TP demande de verifier que le tag Docker n'existe pas deja avant le push.
   # ---------------------------------------------------------------------------

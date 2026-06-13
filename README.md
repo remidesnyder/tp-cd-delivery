@@ -30,9 +30,15 @@ Ce depot part d'une CI deja verte. Vous ajoutez la partie livraison :
 
 Prerequis : Docker Desktop, VS Code et l'extension Dev Containers.
 
-1. Ouvrir le dossier dans VS Code.
-2. Accepter `Reopen in Container`.
-3. Attendre la fin du `postCreateCommand`.
+1. Forker le depot `GVI2026/tp-cd-github-flow` sur GitHub.
+2. Cloner votre fork :
+   ```bash
+   git clone <url-de-votre-fork>
+   cd tp-cd-github-flow
+   ```
+3. Ouvrir le dossier dans VS Code.
+4. Accepter `Reopen in Container`.
+5. Attendre la fin du `postCreateCommand`.
 
 Le DevContainer installe les dependances, initialise SQLite, demarre Verdaccio et `registry:2`, installe `act` et precharge l'image runner.
 
@@ -96,6 +102,13 @@ security -> release -> publish-npm
                     -> publish-docker
 ```
 
+Deroule du TP :
+
+- Partie 1 : travailler directement sur `main` pour ajouter les jobs CD manquants et les tester avec `act`.
+- Partie 2 : appliquer localement la release avec `npx commit-and-tag-version`, puis faire un petit fix via branche courte, rebase et integration fast-forward.
+
+Important : quand `npx commit-and-tag-version` est lance par `act`, le commit de release et le tag restent dans le runner ephemere. Ils ne sont pas visibles dans votre depot local. Pour continuer a coder apres un essai de release, lancez vous-meme `npx commit-and-tag-version` dans le DevContainer.
+
 ## Exercices
 
 Les consignes detaillees sont dans [EXERCICE.md](./EXERCICE.md).
@@ -108,6 +121,20 @@ act -j publish-npm
 npm view tp-cd-github-flow --registry http://localhost:4873
 act -j publish-docker
 curl http://localhost:5000/v2/tp-cd-github-flow/tags/list
+```
+
+Integration locale de la branche de fix :
+
+```bash
+git checkout main
+git checkout -b fix/swagger-description
+# modifier une ligne dans src/main.ts
+git add src/main.ts
+git commit -m "fix: clarify api description"
+git rebase main
+git checkout main
+git merge --ff-only fix/swagger-description
+act -j security
 ```
 
 ## Nettoyer les registres locaux
