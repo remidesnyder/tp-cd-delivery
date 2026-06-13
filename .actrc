@@ -2,4 +2,4 @@
 --pull=false
 --network=host
 --container-options=--volume=tp-cd-github-flow-act-npm:/root/.npm
---artifact-server-path /tmp/act-artifacts
+--artifact-server-path .act-artifacts

@@ -190,6 +190,7 @@ Ajouter un job `publish-docker` :
 - checkout
 - telechargement de `build-dist` dans `dist/`
 - calcul de la version depuis `package.json`
+- verification que le tag Docker n'existe pas encore
 - build de l'image
 - push vers `localhost:5000`
 
@@ -213,7 +214,21 @@ publish-docker:
 
     - name: Calculer le tag Docker
       id: version
-      run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+    - name: Verifier que le tag Docker n'existe pas
+      run: |
+        TAG="${{ steps.version.outputs.version }}"
+        URL="http://localhost:5000/v2/tp-cd-github-flow/manifests/${TAG}"
+        if curl -fsI \
+          -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+          "$URL" > /dev/null; then
+          echo "Le tag Docker ${TAG} existe deja dans le registry local."
+          echo "Publier deux fois le meme tag masquerait l'image precedente."
+          exit 1
+        fi
 
     - name: Construire l'image
       run: docker build -t localhost:5000/tp-cd-github-flow:${{ steps.version.outputs.version }} .
@@ -228,3 +243,45 @@ Verification :
 act -j publish-docker
 curl http://localhost:5000/v2/tp-cd-github-flow/tags/list
 ```
+
+Contrairement a Verdaccio, `registry:2` accepte par defaut de pousser un tag Docker qui existe deja. Un tag Docker est une reference mutable vers un manifeste d'image : repusher `:0.0.1` peut donc faire pointer ce tag vers une nouvelle image. La verification ci-dessus rend le pipeline local plus strict en refusant de masquer une image deja publiee.
+
+## Nettoyage des registres locaux
+
+Les artefacts publies pendant le TP restent dans les volumes Docker de Verdaccio et du registre Docker. C'est pratique pour verifier les publications, mais cela peut bloquer un nouveau run si la meme version existe deja.
+
+### Supprimer une version npm dans Verdaccio
+
+Verdaccio refuse de publier deux fois la meme version. Pour supprimer une version precise :
+
+```bash
+npm unpublish tp-cd-github-flow@0.0.1 --registry http://localhost:4873 --force
+```
+
+Puis verifier :
+
+```bash
+npm view tp-cd-github-flow --registry http://localhost:4873
+```
+
+### Reinitialiser les deux registres locaux
+
+La methode la plus simple pour un TP est de supprimer les volumes de stockage des registres :
+
+```bash
+docker compose down
+docker volume rm tp-cd-github-flow_verdaccio-storage 2>/dev/null || true
+docker volume rm tp-cd-github-flow_registry-storage 2>/dev/null || true
+bash .devcontainer/start-registries.sh
+```
+
+Le registre Docker local ne supprime pas un tag de facon simple dans cette configuration TP. Le reset du volume `registry-storage` est donc la methode recommandee pour repartir proprement.
+
+Puis verifier que les services repondent :
+
+```bash
+curl http://localhost:4873/-/ping
+curl http://localhost:5000/v2/
+```
+
+Apres cette reinitialisation, les packages npm Verdaccio et les images Docker poussees dans `localhost:5000` ont ete supprimes.

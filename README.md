@@ -110,6 +110,34 @@ act -j publish-docker
 curl http://localhost:5000/v2/tp-cd-github-flow/tags/list
 ```
 
+## Nettoyer les registres locaux
+
+Les publications locales sont conservees dans des volumes Docker. Si vous relancez le TP plusieurs fois, vous pouvez tomber sur une erreur du type "version deja publiee" cote npm, ou garder d'anciens tags Docker.
+
+Pour supprimer une version npm precise dans Verdaccio :
+
+```bash
+npm unpublish tp-cd-github-flow@0.0.1 --registry http://localhost:4873 --force
+```
+
+Pour repartir de zero sur les deux registres locaux :
+
+```bash
+docker compose down
+docker volume rm tp-cd-github-flow_verdaccio-storage 2>/dev/null || true
+docker volume rm tp-cd-github-flow_registry-storage 2>/dev/null || true
+bash .devcontainer/start-registries.sh
+```
+
+Le registre Docker local ne supprime pas un tag de facon simple dans cette configuration TP. Le reset du volume `registry-storage` est donc la methode recommandee pour repartir proprement.
+
+Verifications apres nettoyage :
+
+```bash
+npm view tp-cd-github-flow --registry http://localhost:4873
+curl http://localhost:5000/v2/tp-cd-github-flow/tags/list
+```
+
 ## Documentation utile
 
 - [docs/ci-pipeline.md](docs/ci-pipeline.md) : rappel de la CI.

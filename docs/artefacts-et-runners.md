@@ -11,3 +11,11 @@ Repere important :
 - `publish-docker` construit une image avec le meme `dist/` et la pousse dans `registry:2`.
 
 Le principe a retenir est `build once, publish many` : on ne recompile pas separement pour chaque format d'artefact.
+
+## Immutabilite des publications
+
+Une version npm publiee dans Verdaccio est immuable : publier deux fois `tp-cd-github-flow@0.0.1` est refuse.
+
+Un tag Docker est different. Dans le registre Docker officiel `registry:2`, un tag comme `localhost:5000/tp-cd-github-flow:0.0.1` est une reference mutable vers un manifeste d'image. Pousser une nouvelle image avec le meme tag deplace cette reference et masque l'image precedente.
+
+Pour obtenir un comportement proche de npm dans ce TP, le job `publish-docker` verifie l'existence du tag via l'API Registry avant de pousser. Si le tag existe deja, le job echoue. Dans une vraie plateforme, on peut aussi utiliser un registre qui supporte les tags immuables, par exemple Harbor, GitLab Container Registry ou une politique d'immutabilite cote cloud registry.

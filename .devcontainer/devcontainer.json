@@ -20,6 +20,7 @@
   ],
 
   "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/start-registries.sh",
 
   "remoteUser": "node",
 
