@@ -155,6 +155,35 @@ jobs:
   # Avec act, le commit et le tag crees par ce job restent dans le runner
   # ephemere. Lancez npx commit-and-tag-version localement avant de recoder.
   # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [security]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Restaurer le cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+
+      - name: Configurer git user
+        run: |
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+
+      - name: Calculer la version
+        run: npx commit-and-tag-version
 
   # ---------------------------------------------------------------------------
   # EXERCICE 2 : Ajouter un job "publish-npm" ici
@@ -167,7 +196,37 @@ jobs:
   # Si Verdaccio refuse une version deja publiee, nettoyez le registre local
   # avec les commandes donnees dans EXERCICE.md.
   # ---------------------------------------------------------------------------
+  publish-npm:
+    name: Publish npm
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: github.ref == 'refs/heads/main'
 
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Restaurer le cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+
+      - name: Telecharger le build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-dist
+          path: dist/
+
+      - name: Configurer Verdaccio
+        run: npm set //localhost:4873/:_authToken "dummy-token"
+
+      - name: Publier le package
+        run: npm publish --registry http://localhost:4873
   # ---------------------------------------------------------------------------
   # EXERCICE 3 : Ajouter un job "publish-docker" ici
   # Ce job doit :
@@ -178,3 +237,41 @@ jobs:
   #   - Taguer et pousser vers localhost:5000/tp-cd-delivery:<version>
   # Le TP demande de verifier que le tag Docker n'existe pas deja avant le push.
   # ---------------------------------------------------------------------------
+  publish-docker:
+    name: Publish Docker
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Telecharger le build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-dist
+          path: dist/
+
+      - name: Calculer le tag Docker
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verifier que le tag Docker n'existe pas
+        run: |
+          TAG="${{ steps.version.outputs.version }}"
+          URL="http://localhost:5000/v2/tp-cd-delivery/manifests/${TAG}"
+          if curl -fsI \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "$URL" > /dev/null; then
+            echo "Le tag Docker ${TAG} existe deja dans le registry local."
+            echo "Publier deux fois le meme tag masquerait l'image precedente."
+            exit 1
+          fi
+
+      - name: Construire l'image
+        run: docker build -t localhost:5000/tp-cd-delivery:${{ steps.version.outputs.version }} .
+
+      - name: Publier l'image
+        run: docker push localhost:5000/tp-cd-delivery:${{ steps.version.outputs.version }}
