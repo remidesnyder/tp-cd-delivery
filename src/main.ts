@@ -11,7 +11,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('Tasks API')
     .setDescription(
-      'API de gestion de tâches - TP cours-04 Continuous Delivery',
+      'API de gestion de tâches - TP cours-04 Continuous Delivery - Rémi',
     )
     .setVersion('1.0')
     .build();
